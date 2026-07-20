@@ -2,19 +2,18 @@ import "cesium/Build/Cesium/Widgets/widgets.css";
 import "./style.css";
 
 import {
+  ArcGISTiledElevationTerrainProvider,
   BoundingSphere,
   Cartesian2,
   Cartesian3,
   Color,
   ColorMaterialProperty,
   ConstantProperty,
-  createWorldTerrainAsync,
   CustomDataSource,
   EllipsoidTerrainProvider,
   Entity,
   HeightReference,
   ImageryLayer,
-  Ion,
   LabelStyle,
   NearFarScalar,
   OpenStreetMapImageryProvider,
@@ -43,7 +42,7 @@ import { formatDistance, formatElevation, formatSpeed, unitSystemForLocales, typ
 
 const ROUTE_COLORS = ["#f6c945", "#35d5c5", "#ff6f61", "#7ab8ff", "#d79cff", "#a9df68", "#ff9d4d", "#f281b5"];
 const APP_ICONS = { Eye, EyeOff, FileUp, Focus, Map: MapIcon, Maximize, PanelLeftClose, PanelLeftOpen, Route, Upload, X };
-const ionToken = import.meta.env.VITE_CESIUM_ION_TOKEN?.trim();
+const PUBLIC_TERRAIN_URL = "https://elevation3d.arcgis.com/arcgis/rest/services/WorldElevation3D/Terrain3D/ImageServer";
 
 interface LoadedRoute {
   id: string;
@@ -67,8 +66,6 @@ const panel = document.querySelector<HTMLElement>("#panel")!;
 const dropOverlay = document.querySelector<HTMLElement>("#dropOverlay")!;
 const tooltip = document.querySelector<HTMLElement>("#tooltip")!;
 const toastRegion = document.querySelector<HTMLElement>("#toastRegion")!;
-
-if (ionToken) Ion.defaultAccessToken = ionToken;
 
 const viewer = new Viewer("cesiumContainer", {
   animation: false,
@@ -97,7 +94,7 @@ let activeLeg: LegHit | undefined;
 let sceneMode: "2d" | "3d" = "3d";
 let terrainEnabled = false;
 let terrainLoading = false;
-let worldTerrain: Awaited<ReturnType<typeof createWorldTerrainAsync>> | undefined;
+let publicTerrain: ArcGISTiledElevationTerrainProvider | undefined;
 let dragDepth = 0;
 
 const storedUnitSystem = (() => {
@@ -217,8 +214,8 @@ function renderPanel(): void {
         <button class="icon-button" data-action="home" title="Frame visible routes" aria-label="Frame visible routes" ${routes.length ? "" : "disabled"}><i data-lucide="maximize"></i></button>
       </div>
       <div class="terrain-row">
-        <div><span>3D terrain</span><small>${ionToken ? (terrainEnabled ? "Cesium World Terrain" : "Ellipsoid") : "Token not configured"}</small></div>
-        <button class="switch ${terrainEnabled ? "is-on" : ""}" role="switch" aria-checked="${terrainEnabled}" data-action="terrain" ${!ionToken || terrainLoading ? "disabled" : ""} aria-label="Toggle 3D terrain"><span></span></button>
+        <div><span>3D terrain</span><small>${terrainLoading ? "Loading public elevation…" : terrainEnabled ? "Esri World Elevation" : "Ellipsoid"}</small></div>
+        <button class="switch ${terrainEnabled ? "is-on" : ""}" role="switch" aria-checked="${terrainEnabled}" data-action="terrain" ${terrainLoading ? "disabled" : ""} aria-label="Toggle 3D terrain"><span></span></button>
       </div>
       <div class="settings-row">
         <div><span>Units</span><small>${unitSystem === "imperial" ? "Miles, feet, and mph" : "Kilometers, meters, and km/h"}</small></div>
@@ -259,7 +256,7 @@ function addEndpoint(dataSource: CustomDataSource, point: GpxPoint, color: Color
       outlineColor: Color.fromCssColorString("#111514"),
       outlineWidth: 2,
       pixelSize: 10,
-      heightReference: HeightReference.NONE,
+      heightReference: HeightReference.CLAMP_TO_GROUND,
       scaleByDistance: new NearFarScalar(500, 1.1, 100_000, 0.65),
     },
     label: {
@@ -269,6 +266,7 @@ function addEndpoint(dataSource: CustomDataSource, point: GpxPoint, color: Color
       outlineColor: Color.fromCssColorString("#111514"),
       outlineWidth: 3,
       style: LabelStyle.FILL_AND_OUTLINE,
+      heightReference: HeightReference.CLAMP_TO_GROUND,
       verticalOrigin: VerticalOrigin.BOTTOM,
       pixelOffset: new Cartesian2(0, -11),
       scaleByDistance: new NearFarScalar(500, 1, 100_000, 0.5),
@@ -293,6 +291,7 @@ function buildRoute(sourceName: string, gpx: ParsedGpx): LoadedRoute {
         dataSource.entities.add({
           polyline: {
             positions: segment.map(pointPosition),
+            clampToGround: true,
             width: 4,
             material: new ColorMaterialProperty(color),
           },
@@ -305,6 +304,7 @@ function buildRoute(sourceName: string, gpx: ParsedGpx): LoadedRoute {
         const entity = dataSource.entities.add({
           polyline: {
             positions: [pointPosition(start), pointPosition(end)],
+            clampToGround: true,
             width: 12,
             material: new ColorMaterialProperty(color.withAlpha(0.01)),
           },
@@ -444,20 +444,20 @@ function showLeg(position: Cartesian2): void {
 }
 
 async function toggleTerrain(): Promise<void> {
-  if (!ionToken || terrainLoading) return;
+  if (terrainLoading) return;
   terrainLoading = true;
   renderPanel();
   try {
     if (!terrainEnabled) {
-      worldTerrain ??= await createWorldTerrainAsync();
-      viewer.terrainProvider = worldTerrain;
+      publicTerrain ??= await ArcGISTiledElevationTerrainProvider.fromUrl(PUBLIC_TERRAIN_URL);
+      viewer.terrainProvider = publicTerrain;
       terrainEnabled = true;
     } else {
       viewer.terrainProvider = new EllipsoidTerrainProvider();
       terrainEnabled = false;
     }
   } catch {
-    showToast("World terrain could not be loaded. Check the Cesium ion token.", "error");
+    showToast("Public terrain could not be loaded. Check your network connection.", "error");
   } finally {
     terrainLoading = false;
     renderPanel();
@@ -577,3 +577,4 @@ inputHandler.setInputAction((movement: { endPosition: Cartesian2 }) => showLeg(m
 inputHandler.setInputAction((movement: { position: Cartesian2 }) => showLeg(movement.position), ScreenSpaceEventType.LEFT_CLICK);
 
 renderPanel();
+void toggleTerrain();

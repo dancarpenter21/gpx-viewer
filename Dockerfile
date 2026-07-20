@@ -1,4 +1,19 @@
-FROM node:22-alpine AS build
+FROM node:22-alpine AS dependencies
+
+WORKDIR /app
+
+COPY package.json package-lock.json ./
+RUN npm ci
+
+FROM dependencies AS development
+
+COPY . .
+
+EXPOSE 5173
+
+CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0"]
+
+FROM mcr.microsoft.com/playwright:v1.61.1-noble AS test
 
 WORKDIR /app
 
@@ -7,8 +22,11 @@ RUN npm ci
 
 COPY . .
 
-ARG VITE_CESIUM_ION_TOKEN=""
-ENV VITE_CESIUM_ION_TOKEN=${VITE_CESIUM_ION_TOKEN}
+CMD ["npm", "run", "test:e2e:docker"]
+
+FROM dependencies AS build
+
+COPY . .
 
 RUN npm run test && npm run build
 

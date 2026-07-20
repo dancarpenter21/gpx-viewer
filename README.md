@@ -9,7 +9,7 @@ A browser-based GPX viewer built with Vite, TypeScript, and CesiumJS. Drop one o
 - Per-leg hover/tap details for recorded speed and compass direction
 - Start/end time, distance, duration, point count, elevation, and speed statistics
 - 2D and 3D Cesium views with OpenStreetMap imagery
-- Optional Cesium World Terrain support
+- Public global terrain in 3D mode, with no API key required
 
 The included `sample.gpx` is used by the automated tests and can be loaded manually for a quick demonstration. It is not loaded when the app starts.
 
@@ -35,19 +35,37 @@ npm run test:e2e
 
 The browser suite requires a local Chromium installation. Install Playwright's browser and OS dependencies once with `npx playwright install --with-deps chromium`.
 
-## Optional 3D terrain
+## 3D terrain
 
-The viewer works without credentials using Cesium's WGS84 ellipsoid. To offer Cesium World Terrain, create a browser-restricted Cesium ion token and provide it when building:
-
-```bash
-VITE_CESIUM_ION_TOKEN=your_token npm run build
-```
-
-Vite embeds `VITE_CESIUM_ION_TOKEN` in the browser bundle. Treat it as a public client token and restrict its permitted URLs and assets in Cesium ion.
+The viewer loads Esri World Elevation terrain when it starts, so hills and mountains are visible in 3D mode without an API key. Use the 3D terrain switch to return to the WGS84 ellipsoid when desired.
 
 ## Docker
 
-Build the production image and run it on port 8080:
+Start the development profile with source-mounted hot reloading:
+
+```bash
+docker compose --profile dev up --build
+```
+
+Open `http://localhost:5173`. Changes to the source files are picked up by Vite without rebuilding the image. Stop the environment with `docker compose --profile dev down`.
+
+Run the Playwright browser suite in its dedicated test container with:
+
+```bash
+docker compose --profile test run --build --rm viewer-test
+```
+
+The test image includes Chromium and its system dependencies; the smaller development image does not. The test command builds the current source before starting Playwright's preview server, runs independently of the hot-reload service, and uses one worker with a container-specific timeout to keep Cesium/WebGL tests reliable under software rendering.
+
+To run the production profile instead:
+
+```bash
+docker compose --profile production up --build
+```
+
+Open `http://localhost:8080`.
+
+You can also build and run the production image directly:
 
 ```bash
 docker build -t gpx-viewer .
@@ -55,13 +73,5 @@ docker run --rm -p 8080:80 gpx-viewer
 ```
 
 Open `http://localhost:8080`. The image runs the tests and production build in a Node stage, then serves only the generated static assets from Nginx.
-
-Build with optional World Terrain support:
-
-```bash
-docker build \
-  --build-arg VITE_CESIUM_ION_TOKEN=your_token \
-  -t gpx-viewer .
-```
 
 The container exposes `/healthz` and includes a Docker health check.

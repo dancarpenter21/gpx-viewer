@@ -8,14 +8,15 @@
     "build": "tsc && vite build",
     "preview": "vite preview",
     "test": "vitest run",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "test:e2e:docker": "npm run build && playwright test --workers=1 --timeout=120000"
   },
   "dependencies": {
     "cesium": "^1.132.0",
     "lucide": "^0.468.0"
   },
   "devDependencies": {
-    "@playwright/test": "^1.61.1",
+    "@playwright/test": "1.61.1",
     "@types/node": "^24.0.0",
     "jsdom": "^26.1.0",
     "typescript": "^5.9.2",
