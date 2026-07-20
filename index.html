@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#111514" />
+    <title>GPX Viewer</title>
+  </head>
+  <body>
+    <main id="app">
+      <div id="cesiumContainer" aria-label="Interactive route map"></div>
+      <div id="dropOverlay" class="drop-overlay" aria-hidden="true">
+        <div class="drop-message">
+          <i data-lucide="file-up" aria-hidden="true"></i>
+          <span>Drop GPX files to add routes</span>
+        </div>
+      </div>
+      <aside id="panel" class="panel" aria-label="GPX viewer controls"></aside>
+      <div id="tooltip" class="map-tooltip" role="status" aria-live="polite"></div>
+      <div id="toastRegion" class="toast-region" aria-live="polite"></div>
+    </main>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
